@@ -1,0 +1,39 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # allows manual trigger
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'  # No cache to avoid lock file errors
+
+    - name: Inject GitHub username into React .env
+      run: |
+            echo "REACT_APP_GITHUB_USERNAME=${{ github.actor }}" > client/.env
+
+    - name: Install and build (postinstall)
+      run: |
+        npm install
+        npm run postinstall
+
+    - name: Zip deployment package
+      run: |
+        zip -r release.zip server client/build package.json
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ secrets.AZURE_APP_NAME }}
+        publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+        package: release.zip
